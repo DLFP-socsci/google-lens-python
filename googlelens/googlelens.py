@@ -2,16 +2,23 @@ import re
 import json
 from requests import Session
 from bs4 import BeautifulSoup
+from typing import Optional
 
 class GoogleLens:
-    def __init__(self):
+    def __init__(self, 
+                 default_language: Optional[str] = None,
+                 default_location: Optional[str] = None):
         """
         Initialize the GoogleLens object.
 
-        Sets up base URL and session with appropriate headers for making requests to Google Lens.
+        Parameters:
+        default_language (str, optional): Default host language code (e.g., 'en', 'es', 'fr')
+        default_location (str, optional): Default geolocation code (e.g., 'us', 'uk', 'ca')
         """
         self.url = "https://lens.google.com"
         self.session = Session()
+        self.default_language = default_language
+        self.default_location = default_location
         
         # Update session headers to mimic a standard browser user-agent
         self.session.headers.update(
@@ -133,12 +140,41 @@ class GoogleLens:
         # Return the results dictionary
         return data
 
-    def search_by_file(self, file_path: str):
+    def _build_params(self, additional_params: dict = None):
+        """
+        Build request parameters by combining defaults with any additional parameters.
+        
+        Parameters:
+        additional_params (dict, optional): Additional parameters to include in the request
+        
+        Returns:
+        dict: Combined parameters dictionary
+        """
+        params = {}
+        
+        # Only add language and location if they're set
+        if self.default_language:
+            params["hl"] = self.default_language
+        if self.default_location:
+            params["gl"] = self.default_location
+            
+        # Update with any additional parameters
+        if additional_params:
+            params.update(additional_params)
+            
+        return params
+
+    def search_by_file(self,
+                       file_path: str,
+                       language: Optional[str] = None,
+                       location: Optional[str] = None):
         """
         Perform an image-based search by uploading a file.
 
         Parameters:
-        file_path (str): The path to the image file that will be used for the search.
+        file_path (str): The path to the image file that will be used for the search
+        language (str, optional): Override default host language for this search
+        location (str, optional): Override default geolocation for this search
 
         Returns:
         The parsed search results after extracting and processing the response.
@@ -148,11 +184,12 @@ class GoogleLens:
             'image_content': ''
         }
 
-        # Build the parameter dictionary
-        params = {
-            "hl": "en",  # Adjust host language here
-            "gl": "us",  # Adjust the geolocation parameter here
-        }
+        # Build parameters, allowing overrides for this specific search
+        params = self._build_params()
+        if language:
+            params["hl"] = language
+        if location:
+            params["gl"] = location
         
         # Send a POST request to upload the file
         response = self.session.post(
@@ -185,22 +222,30 @@ class GoogleLens:
         # Parse the prerender script and return the processed search result.
         return self.__parse_prerender_script(prerender_script)
         
-    def search_by_url(self, url: str):
+    def search_by_url(self,
+                      url: str, 
+                      language: Optional[str] = None, 
+                      location: Optional[str] = None):
         """
         Perform an image-based search by providing an image URL.
 
         Parameters:
-        url (str): The URL of the image that will be used for the search.
+        url (str): The URL of the image that will be used for the search
+        language (str, optional): Override default host language for this search
+        location (str, optional): Override default geolocation for this search
 
         Returns:
         The parsed search results after extracting and processing the response.
         """
-        # Build the parameter dictionary
-        params = {
-            "url": url,
-            "hl": "en",  # Adjust host language here
-            "gl": "us",  # Adjust geolocation here
-        }
+        # Build base parameters
+        params = self._build_params({"url": url})
+        
+        # Allow overrides for this specific search
+        if language:
+            params["hl"] = language
+        if location:
+            params["gl"] = location
+        
         # Send a GET request to the provided URL
         response = self.session.get(
             self.url + "/uploadbyurl",
