@@ -115,7 +115,24 @@ class GoogleLens:
             ) else None
 
             # Clean price by removing any special characters (e.g., currency signs)
-            price = re.sub(r"[^\d.]", "", price) if price is not None else None
+            if price is not None:
+                # Remove any non-numeric characters except the dot and comma
+                price = re.sub(r"[^\d.,]", "", price)
+                # Handle different decimal and thousand separators
+                if price.count(',') > 1:
+                    # If multiple commas present, assume dot is decimal separator
+                    price = float(price.replace(',', ''))
+                elif price.count('.') > 1:
+                    # If there are multiple dots, assume comma is decimal separator
+                    price = float(price.replace('.', '').replace(',', '.'))
+                else:
+                    # If there is only one separator, determine which one is the decimal separator
+                    if price.find(',') > price.find('.'):
+                        # Comma is the decimal separator
+                        price = float(price.replace('.', '').replace(',', '.'))
+                    else:
+                        # Dot is the decimal separator
+                        price = float(price.replace(',', ''))
 
             # Safely extract currency if available
             currency = match[0][7][5] if (
